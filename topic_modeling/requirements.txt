@@ -1,0 +1,13 @@
+bertopic==0.17.0
+hdbscan==0.8.40
+nltk==3.9.1
+numpy==1.26.4
+matplotlib==3.10.1
+pandas==2.2.3
+plotly==6.1.2
+scikit-learn==1.6.1
+sentence-transformers==4.1.0
+transformers==4.51.3
+umap-learn==0.5.7
+datamapplot==0.3.0
+kaleido==0.2.1
