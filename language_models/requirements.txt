@@ -1,0 +1,7 @@
+open_clip_torch
+transformers
+pandas
+torch
+laion_clap
+sentencepiece
+argparse
