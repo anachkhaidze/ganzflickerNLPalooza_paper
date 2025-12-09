@@ -8,10 +8,10 @@ This repository is organized to mirror the three main analytical components of t
 
 1. **Topic modeling (MOSAIC pipeline)**
    - Topic modeling script: `topic_modeling.ipynb`
-   - Regression analyses: 'topic_lasso_modeling_plots_paper.ipynb'
+   - Regression analyses: `topic_lasso_modeling_plots_paper.ipynb`
 
 2. **LLM/VLM pipeline**
-   - To get description embeddings, run the main file with the models of your choice python main.py --model bert clip clap gpt2 siglip or python main.py --model all to run all models
+   - To get description embeddings run 'main.py'
    - RDM and stats: `rdm_stats.ipynb`
 
 3. **Sensorimotor content analysis (Lancaster Norms)**
