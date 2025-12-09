@@ -19,4 +19,3 @@ This repository is organized to mirror the three main analytical components of t
    - Regression analyses for sensorimotor dimensions: `ls_regressions.ipynb`
    - Regression analyses for ASCs: `emotions_altered_states.ipynb`
    - Plotting: `ls_plots_sensorimotor_dimensions.ipynb`
-This analyses correspond to Figs. 9, S6-S10, and Table S1
