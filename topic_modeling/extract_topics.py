@@ -1,85 +1,77 @@
-from bertopic import BERTopic
-from bertopic.representation import KeyBERTInspired
 import pickle
-import os
-from umap import UMAP
-from sentence_transformers import SentenceTransformer
-from utils import get_gpt_client
-from bertopic.representation import OpenAI
-import pandas as pd  # Import pandas
-from sklearn.feature_extraction.text import CountVectorizer
 import random
 import numpy as np
 import torch
+from bertopic import BERTopic
+from bertopic.representation import OpenAI
+from umap import UMAP
+from sentence_transformers import SentenceTransformer
+from utils import get_gpt_client 
 
-def create_bertopic_model(data, number_of_topics=50, n_neighbors=15, n_components=2, min_dist=0.0, metric='cosine', min_topic_size=10):  
+def create_bertopic_model_and_save_keywords(data, number_of_topics=50, n_neighbors=15, n_components=2, min_dist=0.0, metric='cosine', min_topic_size=10):
+    """
+    Creates and fits a BERTopic model, applies custom OpenAI labels,
+    and extracts the original keyword representations for coherence calculation.
+    """
+    # Set seeds for reproducibility
     random.seed(52)
     np.random.seed(52)
     torch.manual_seed(52)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(52)
 
+    print("Generating new model...")
 
-    print(f"Generating new model...")
-
-    # Set up UMAP
+    # --- Setup UMAP and Embedding Models ---
     umap_model = UMAP(n_neighbors=n_neighbors, n_components=n_components,
                 min_dist=min_dist, metric=metric, random_state=42)
-    embedding_model = SentenceTransformer("all-MiniLM-L6-v2") # Can use paraphrase-multilingual-MiniLM-L12-v2 for multilingual data
+    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    # Custom Prompt
+    # --- Step 1: Fit a base BERTopic model first ---
+    # We do this without the representation model to get the underlying c-TF-IDF keywords.
+    print("Fitting BERTopic model to find base topics...")
+    topic_model = BERTopic(
+        nr_topics=number_of_topics, 
+        min_topic_size=min_topic_size, 
+        calculate_probabilities=True, 
+        umap_model=umap_model, 
+        embedding_model=embedding_model, 
+        verbose=True
+    )
+    topics, probs = topic_model.fit_transform(data)
+
+    # --- Step 2: Extract original keywords before they are replaced ---
+    # This is the crucial data needed for calculating the coherence score later.
+    print("Extracting original c-TF-IDF keywords...")
+    original_keywords = topic_model.topic_representations_.copy()
+
+    # --- Step 3: Apply the custom OpenAI labels ---
+    # Now we update the topic representations with nice, human-readable names.
+    print("Updating topic representations with OpenAI labels...")
+    
+    # This new, more direct prompt fixes the issue where the AI would give
+    # conversational replies instead of topic labels.
     prompt = """
-    You will extract a short topic label from given documents and keywords. The documents are hallucination
-    descriptions from a visual imagery experiment where the participant watched a Ganzflicker.
-    Here are two examples of topics you created before:
-
-    # Example 1
-    Sample texts from this topic:
-    - Traditional diets in most cultures were primarily plant-based with a little meat on top, but with the rise of industrial style meat production and factory farming, meat has become a staple food.
-    - Meat, but especially beef, is the worst food in terms of emissions.
-    - Eating meat doesn't make you a bad person, not eating meat doesn't make you a good one.
-
-    Keywords: meat beef eat eating emissions steak food health processed chicken
-    topic: Environmental impacts of eating meat
-
-    # Example 2
-    Sample texts from this topic:
-    - I saw people walking around and their faces grew bigger.
-    - There were a lot of people looking at me and it scared me!
-    - I saw a flashing screen that had people in them and they had weird faces.
-    - There were a bunch of faces floating around.
-
-    Keywords: face faces people walking
-    topic: Faces
-
-    # Your task
-    Sample texts from this topic:
+    I have a topic that contains the following documents:
     [DOCUMENTS]
-    Keywords: [KEYWORDS]
 
-    Based on the information above, extract a short topic label (1-3 words). Use Title case.
-    Be concise: avoid filler words like 'imagery', 'hallucination', 'experiment', 'experiences', 'patterns', etc. in the topic label. 
-    Do so in the following format:
-    topic: <topic_label>
+    The topic is represented by these keywords: [KEYWORDS]
+
+    Based on the documents and keywords, your task is to create a concise, 1-3 word topic label in Title Case.
+
+    - Do not ask for more information.
+    - Do not add any commentary or introductory text.
+    - Provide only the topic label.
+
+    The topic label is:
     """
-
-    representation_model = OpenAI(get_gpt_client(), model='gpt-4o-mini', prompt=prompt) # This will improve the topic names
-
-    # Create a BERTopic model
-    # If number_of_topics is not None, we will use it to create the model
-    # If number_of_topics is None, we will use the default number of topics that it creates
-    if number_of_topics is not None:
-        topic_model = BERTopic(representation_model=representation_model, nr_topics=number_of_topics, min_topic_size=min_topic_size, calculate_probabilities=True, umap_model=umap_model, embedding_model=embedding_model, verbose=True)
-
-        # Fit the BERTopic model
-        topics, probs = topic_model.fit_transform(data)
-    else:
-        topic_model = BERTopic(representation_model=representation_model, min_topic_size=min_topic_size, calculate_probabilities=True, umap_model=umap_model, embedding_model=embedding_model, verbose=True)
-        # Fit the BERTopic model
-        topics, probs = topic_model.fit_transform(data)
-
-    # Replace the number of the topic with the actual topic name
-    topic_df = topic_model.get_topic_info()
-    topics = [topic_df[topic_df['Topic'] == i]['Name'].iloc[0] for i in topics]
-
-    return topic_model, topics, probs, umap_model, embedding_model
+    
+    # Initialize the OpenAI representation model with the corrected prompt and chat=True
+    representation_model = OpenAI(get_gpt_client(), model='gpt-4o-mini', prompt=prompt, chat=True)
+    
+    # Update the topics with the new labels. This doesn't re-train the model.
+    topic_model.update_topics(data, topics, representation_model=representation_model)
+    
+    # --- Step 4: Return all necessary objects ---
+    # We return the embedding_model so it can be passed to the .save() function.
+    return topic_model, topics, probs, original_keywords, umap_model, embedding_model
