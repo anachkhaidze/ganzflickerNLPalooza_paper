@@ -1,6 +1,6 @@
 # From dots to faces: Individual differences in visual imagery capacity predict the content of flicker-induced hallucinations
 
-This repository contains all the data, code, and materials required to reproduce the analyses presented in the above article. The preprint can is available [here](https://arxiv.org/abs/2507.09011).
+This repository contains all the data, code, and materials required to reproduce the analyses presented in the above article. The preprint is available [here](https://arxiv.org/abs/2507.09011).
 
 ### Contents
 
